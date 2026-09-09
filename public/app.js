@@ -22,6 +22,8 @@
   const pool = document.getElementById('bandPool');
   const list = document.getElementById('rankList');
   const search = document.getElementById('bandSearch');
+  const searchStatus = document.getElementById('bandSearchStatus');
+  const searchEmpty = document.getElementById('bandSearchEmpty');
   const count = document.getElementById('selectedCount');
   const rankingsJson = document.getElementById('rankingsJson');
   const save = document.getElementById('saveRankings');
@@ -98,13 +100,55 @@
     update();
   });
 
-  search.addEventListener('input', () => {
-    const term = search.value.trim().toLowerCase();
-    pool.querySelectorAll('.band-option').forEach(btn => {
-      const haystack = `${btn.dataset.bandName} ${btn.dataset.location}`.toLowerCase();
-      btn.hidden = Boolean(term && !haystack.includes(term));
+  function normalizeSearch(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, ' ');
+  }
+
+  function filterBands() {
+    const term = normalizeSearch(search.value);
+    const terms = term ? term.split(' ') : [];
+    const buttons = [...pool.querySelectorAll('.band-option')];
+  
+    let visible = 0;
+  
+    buttons.forEach(btn => {
+      const haystack = normalizeSearch(
+        `${btn.dataset.bandName || ''} ${btn.dataset.location || ''}`
+      );
+  
+      const matches =
+        terms.length === 0 ||
+        terms.every(word => haystack.includes(word));
+  
+      btn.classList.toggle('is-filtered-out', !matches);
+      btn.hidden = !matches;
+      btn.setAttribute('aria-hidden', matches ? 'false' : 'true');
+  
+      if (matches) visible += 1;
     });
-  });
+  
+    if (searchStatus) {
+      searchStatus.textContent = term
+        ? `${visible} matching band${visible === 1 ? '' : 's'}`
+        : `${buttons.length} bands available`;
+    }
+  
+    if (searchEmpty) {
+      searchEmpty.hidden = visible !== 0;
+    }
+  }
+
+  search.addEventListener('input', filterBands);
+  search.addEventListener('search', filterBands);
+  filterBands();
+
+  
 
   clear.addEventListener('click', () => {
     list.innerHTML = '';
