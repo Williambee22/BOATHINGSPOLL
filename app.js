@@ -40,7 +40,16 @@ app.use(helmet({
 }));
 app.use(express.urlencoded({ extended: true, limit: '300kb' }));
 app.use(express.json({ limit: '300kb' }));
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: isProduction ? '1d' : 0 }));
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: isProduction ? '1d' : 0,
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('app.js') || filePath.endsWith('styles.css')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 app.use(session({
   store: new PgSession({ pool, tableName: 'mbpoll_sessions', createTableIfMissing: true }),
