@@ -35,8 +35,8 @@
         <div class="panel-head"><div><div class="eyebrow">BULK IMPORT</div><h2>Paste a full list</h2></div></div>
         <form method="post" action="/admin/bands/import" class="stack-form compact-form">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <label>One band per line<textarea name="band_list" rows="8" placeholder="Vandegrift High School | Austin | TX&#10;Broken Arrow High School | Broken Arrow | OK"></textarea></label>
-          <small>Use <strong>School | City | State</strong> or comma-separated rows.</small>
+          <label>One band per line<textarea name="band_list" rows="8" placeholder="Noblesville H.S., IN&#10;Norton H.S., OH&#10;Norwood H.S., OH&#10;O'Fallon Township H.S., IL&#10;Pike County Central H.S., KY"></textarea></label>
+          <small>Use <strong>School Name, ST</strong>. Duplicate school/state entries are ignored; the first occurrence is kept.</small>
           <button class="button" type="submit">Import bands</button>
         </form>
       </section>
