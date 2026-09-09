@@ -22,17 +22,78 @@
   const pool = document.getElementById('bandPool');
   const list = document.getElementById('rankList');
   const search = document.getElementById('bandSearch');
-  const searchStatus = document.getElementById('bandSearchStatus');
-  const searchEmpty = document.getElementById('bandSearchEmpty');
   const count = document.getElementById('selectedCount');
   const rankingsJson = document.getElementById('rankingsJson');
   const save = document.getElementById('saveRankings');
   const message = document.getElementById('rankMessage');
   const clear = document.getElementById('clearRankings');
+  const searchStatus = document.getElementById('bandSearchStatus');
+  const searchEmpty = document.getElementById('bandSearchEmpty');
+  const draftStatus = document.getElementById('draftStatus');
+  const draftKey = builder.dataset.draftKey || 'mbpoll:rankings:draft';
+
+  const serverRankings = (() => {
+    try {
+      return JSON.parse(builder.dataset.serverRankings || '[]').map(Number);
+    } catch {
+      return [];
+    }
+  })();
+
   let dragging = null;
 
+  function arraysEqual(a, b) {
+    return a.length === b.length &&
+      a.every((value, index) => value === b[index]);
+  }
+
+  function readDraft() {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw === null) return null;
+
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.rankings)) return null;
+
+      return {
+        rankings: parsed.rankings.map(Number).filter(Number.isInteger),
+        savedAt: parsed.savedAt || null
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function writeDraft(ids) {
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        rankings: ids,
+        savedAt: new Date().toISOString()
+      }));
+
+      if (draftStatus) {
+        draftStatus.textContent = 'Draft saved in this browser.';
+      }
+    } catch {
+      if (draftStatus) {
+        draftStatus.textContent = 'Draft could not be saved in this browser.';
+      }
+    }
+  }
+
+  function clearDraft() {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {}
+
+    if (draftStatus) {
+      draftStatus.textContent = '';
+    }
+  }
+
   function selectedIds() {
-    return [...list.querySelectorAll('.rank-item')].map(el => Number(el.dataset.bandId));
+    return [...list.querySelectorAll('.rank-item')]
+      .map(el => Number(el.dataset.bandId));
   }
 
   function makeItem(button) {
@@ -45,50 +106,139 @@
 
     const rank = document.createElement('span');
     rank.className = 'rank-number';
+
     const grip = document.createElement('span');
     grip.className = 'grip';
     grip.textContent = '⋮⋮';
     grip.setAttribute('role', 'button');
     grip.setAttribute('aria-label', 'Drag to reorder');
     grip.setAttribute('title', 'Drag to reorder');
+
     const copy = document.createElement('span');
     copy.className = 'rank-copy';
+
     const strong = document.createElement('strong');
     strong.textContent = button.dataset.bandName;
+
     const small = document.createElement('small');
-    small.textContent = button.dataset.location || 'Location not listed';
+    small.textContent =
+      button.dataset.location || 'Location not listed';
+
     copy.append(strong, small);
+
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'remove-band';
     remove.textContent = '×';
-    remove.setAttribute('aria-label', `Remove ${button.dataset.bandName}`);
+    remove.setAttribute(
+      'aria-label',
+      `Remove ${button.dataset.bandName}`
+    );
+
     li.append(rank, grip, copy, remove);
+
     return li;
   }
 
-  function update() {
+  function restoreDraftIfNeeded() {
+    const draft = readDraft();
+    if (!draft) return false;
+
+    // If the server already contains this exact ranking,
+    // the draft was successfully saved and can be removed.
+    if (arraysEqual(draft.rankings, serverRankings)) {
+      clearDraft();
+      return false;
+    }
+
+    const available = new Map(
+      [...pool.querySelectorAll('.band-option')]
+        .map(button => [
+          Number(button.dataset.bandId),
+          button
+        ])
+    );
+
+    const validIds = [];
+    const seen = new Set();
+
+    for (const id of draft.rankings) {
+      if (validIds.length >= requiredCount) break;
+      if (!available.has(id) || seen.has(id)) continue;
+
+      seen.add(id);
+      validIds.push(id);
+    }
+
+    list.innerHTML = '';
+
+    validIds.forEach(id => {
+      list.appendChild(makeItem(available.get(id)));
+    });
+
+    if (draftStatus) {
+      draftStatus.textContent = draft.savedAt
+        ? `Unfinished draft restored from ${new Date(
+            draft.savedAt
+          ).toLocaleString()}.`
+        : 'Unfinished draft restored.';
+    }
+
+    return true;
+  }
+
+  function update({ persist = true } = {}) {
     const items = [...list.querySelectorAll('.rank-item')];
-    items.forEach((item, i) => { item.querySelector('.rank-number').textContent = String(i + 1); });
+
+    items.forEach((item, i) => {
+      item.querySelector('.rank-number').textContent =
+        String(i + 1);
+    });
+
     const ids = selectedIds();
+
     rankingsJson.value = JSON.stringify(ids);
     count.textContent = String(ids.length);
+
     pool.querySelectorAll('.band-option').forEach(btn => {
-      btn.classList.toggle('is-selected', ids.includes(Number(btn.dataset.bandId)));
+      btn.classList.toggle(
+        'is-selected',
+        ids.includes(Number(btn.dataset.bandId))
+      );
     });
+
     const remaining = requiredCount - ids.length;
+
     if (remaining > 0) {
-      message.innerHTML = `Rank <strong>${remaining}</strong> more band${remaining === 1 ? '' : 's'} to complete your ballot.`;
+      message.innerHTML =
+        `Rank <strong>${remaining}</strong> more band${
+          remaining === 1 ? '' : 's'
+        } to complete your ballot.`;
+
       save.disabled = true;
     } else {
-      message.innerHTML = '<strong>Your ballot is complete.</strong> Save whenever you are ready.';
+      message.innerHTML =
+        '<strong>Your ballot is complete.</strong> Save whenever you are ready.';
+
       save.disabled = false;
+    }
+
+    if (persist) {
+      writeDraft(ids);
     }
   }
 
   pool.addEventListener('click', event => {
     const button = event.target.closest('.band-option');
-    if (!button || button.classList.contains('is-selected') || list.children.length >= requiredCount) return;
+
+    if (
+      !button ||
+      button.classList.contains('is-selected') ||
+      list.children.length >= requiredCount
+    ) {
+      return;
+    }
+
     list.appendChild(makeItem(button));
     update();
   });
@@ -96,6 +246,7 @@
   list.addEventListener('click', event => {
     const remove = event.target.closest('.remove-band');
     if (!remove) return;
+
     remove.closest('.rank-item').remove();
     update();
   });
@@ -113,32 +264,46 @@
   function filterBands() {
     const term = normalizeSearch(search.value);
     const terms = term ? term.split(' ') : [];
-    const buttons = [...pool.querySelectorAll('.band-option')];
-  
+    const buttons = [
+      ...pool.querySelectorAll('.band-option')
+    ];
+
     let visible = 0;
-  
+
     buttons.forEach(btn => {
       const haystack = normalizeSearch(
-        `${btn.dataset.bandName || ''} ${btn.dataset.location || ''}`
+        `${btn.dataset.bandName || ''} ${
+          btn.dataset.location || ''
+        }`
       );
-  
+
       const matches =
         terms.length === 0 ||
         terms.every(word => haystack.includes(word));
-  
-      btn.classList.toggle('is-filtered-out', !matches);
+
+      btn.classList.toggle(
+        'is-filtered-out',
+        !matches
+      );
+
       btn.hidden = !matches;
-      btn.setAttribute('aria-hidden', matches ? 'false' : 'true');
-  
+
+      btn.setAttribute(
+        'aria-hidden',
+        matches ? 'false' : 'true'
+      );
+
       if (matches) visible += 1;
     });
-  
+
     if (searchStatus) {
       searchStatus.textContent = term
-        ? `${visible} matching band${visible === 1 ? '' : 's'}`
+        ? `${visible} matching band${
+            visible === 1 ? '' : 's'
+          }`
         : `${buttons.length} bands available`;
     }
-  
+
     if (searchEmpty) {
       searchEmpty.hidden = visible !== 0;
     }
@@ -146,9 +311,6 @@
 
   search.addEventListener('input', filterBands);
   search.addEventListener('search', filterBands);
-  filterBands();
-
-  
 
   clear.addEventListener('click', () => {
     list.innerHTML = '';
@@ -158,13 +320,17 @@
   list.addEventListener('dragstart', event => {
     const item = event.target.closest('.rank-item');
     if (!item) return;
+
     dragging = item;
     item.classList.add('dragging');
     event.dataTransfer.effectAllowed = 'move';
   });
 
   list.addEventListener('dragend', () => {
-    if (dragging) dragging.classList.remove('dragging');
+    if (dragging) {
+      dragging.classList.remove('dragging');
+    }
+
     dragging = null;
     update();
   });
@@ -172,52 +338,135 @@
   list.addEventListener('dragover', event => {
     event.preventDefault();
     if (!dragging) return;
-    const after = [...list.querySelectorAll('.rank-item:not(.dragging)')].reduce((closest, child) => {
-      const box = child.getBoundingClientRect();
-      const offset = event.clientY - box.top - box.height / 2;
-      return offset < 0 && offset > closest.offset ? { offset, element: child } : closest;
-    }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
-    if (after) list.insertBefore(dragging, after); else list.appendChild(dragging);
+
+    const after = [
+      ...list.querySelectorAll(
+        '.rank-item:not(.dragging)'
+      )
+    ].reduce(
+      (closest, child) => {
+        const box = child.getBoundingClientRect();
+
+        const offset =
+          event.clientY -
+          box.top -
+          box.height / 2;
+
+        return offset < 0 &&
+          offset > closest.offset
+          ? {
+              offset,
+              element: child
+            }
+          : closest;
+      },
+      {
+        offset: Number.NEGATIVE_INFINITY,
+        element: null
+      }
+    ).element;
+
+    if (after) {
+      list.insertBefore(dragging, after);
+    } else {
+      list.appendChild(dragging);
+    }
   });
-  // Touch/pen drag support using the visible grip. Desktop still uses native HTML5 drag-and-drop.
+
+  // Touch/pen drag support.
   let pointerDragging = null;
 
   list.addEventListener('pointerdown', event => {
     const grip = event.target.closest('.grip');
-    if (!grip || event.pointerType === 'mouse') return;
+
+    if (
+      !grip ||
+      event.pointerType === 'mouse'
+    ) {
+      return;
+    }
+
     const item = grip.closest('.rank-item');
     if (!item) return;
+
     pointerDragging = item;
     item.classList.add('dragging');
-    grip.setPointerCapture?.(event.pointerId);
+
+    grip.setPointerCapture?.(
+      event.pointerId
+    );
+
     event.preventDefault();
   });
 
   list.addEventListener('pointermove', event => {
-    if (!pointerDragging || event.pointerType === 'mouse') return;
+    if (
+      !pointerDragging ||
+      event.pointerType === 'mouse'
+    ) {
+      return;
+    }
+
     event.preventDefault();
-    const candidates = [...list.querySelectorAll('.rank-item:not(.dragging)')];
+
+    const candidates = [
+      ...list.querySelectorAll(
+        '.rank-item:not(.dragging)'
+      )
+    ];
+
     let before = null;
+
     for (const child of candidates) {
-      const box = child.getBoundingClientRect();
-      if (event.clientY < box.top + box.height / 2) {
+      const box =
+        child.getBoundingClientRect();
+
+      if (
+        event.clientY <
+        box.top + box.height / 2
+      ) {
         before = child;
         break;
       }
     }
-    if (before) list.insertBefore(pointerDragging, before);
-    else list.appendChild(pointerDragging);
+
+    if (before) {
+      list.insertBefore(
+        pointerDragging,
+        before
+      );
+    } else {
+      list.appendChild(pointerDragging);
+    }
   });
 
   function finishPointerDrag() {
     if (!pointerDragging) return;
-    pointerDragging.classList.remove('dragging');
+
+    pointerDragging.classList.remove(
+      'dragging'
+    );
+
     pointerDragging = null;
     update();
   }
 
-  list.addEventListener('pointerup', finishPointerDrag);
-  list.addEventListener('pointercancel', finishPointerDrag);
+  list.addEventListener(
+    'pointerup',
+    finishPointerDrag
+  );
 
-  update();
+  list.addEventListener(
+    'pointercancel',
+    finishPointerDrag
+  );
+
+  const restoredDraft =
+    restoreDraftIfNeeded();
+
+  filterBands();
+
+  update({
+    persist: restoredDraft
+  });
 })();
