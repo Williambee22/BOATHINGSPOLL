@@ -1,0 +1,21 @@
+<%- include('partials/header') %>
+<section class="auth-section">
+  <div class="shell auth-grid">
+    <div class="auth-copy">
+      <div class="eyebrow">MEMBER ACCESS</div>
+      <h1>Sign in and keep your Top 25 current.</h1>
+      <p>Your account has one live ballot. Every time you save it, the composite poll updates.</p>
+    </div>
+    <div class="form-card">
+      <h2>Sign in</h2>
+      <form method="post" action="/login" class="stack-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label>Username<input name="username" autocomplete="username" required></label>
+        <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+        <button class="button button-full" type="submit">Sign in</button>
+      </form>
+      <p class="form-footer">No account yet? <a href="/register">Create one</a>.</p>
+    </div>
+  </div>
+</section>
+<%- include('partials/footer') %>

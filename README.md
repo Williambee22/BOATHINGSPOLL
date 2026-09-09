@@ -1,4 +1,4 @@
-# National Marching Band Poll v1.2
+# National Marching Band Poll v1.4
 
 A continuous AP-style Top 25 polling site for high school marching band, built for Railway with Node.js, Express, EJS, and PostgreSQL.
 
@@ -32,7 +32,7 @@ The admin can:
 - Cast and edit an ordinary Top 25 ballot that counts once like any other account.
 - Change the homepage graphic title.
 - Add one band at a time.
-- Bulk import bands using `School | City | State` or `School, City, State`.
+- Bulk import bands using `School Name, ST`, one school per line. Duplicate school/state entries are ignored and the first occurrence wins.
 - Activate/deactivate bands.
 - See every account's ballot status and exact last-updated timestamp.
 - Delete any user's saved ballot without deleting the account; the vote immediately stops counting.
@@ -73,3 +73,23 @@ The app automatically creates its PostgreSQL tables, session table, first admin 
 - Self-registration cannot create administrators.
 
 If fewer than 25 bands are active, users rank every active band. Once at least 25 are active, ballots require exactly 25 different bands.
+
+
+## Logo image
+
+The homepage poll graphic uses the standalone image file `public/boa-things-logo.png` (512×512 PNG). Replace that file with your real logo later while keeping the same filename, and the site will use it automatically.
+
+
+## Bulk band import format
+
+Paste one school per line in this format:
+
+```text
+Noblesville H.S., IN
+Norton H.S., OH
+Norwood H.S., OH
+O'Fallon Township H.S., IL
+Pike County Central H.S., KY
+```
+
+The importer uses school name + state to identify duplicates. If the same school appears more than once in a paste, only the first occurrence is used. If that school/state is already in the database, it is skipped rather than added again.

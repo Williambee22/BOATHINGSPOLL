@@ -1,0 +1,64 @@
+<%- include('partials/header') %>
+<section class="poll-home">
+  <div class="shell">
+    <div class="home-tools">
+      <div>
+        <div class="eyebrow">CURRENT COMMUNITY POLL</div>
+        <h1>National marching band rankings</h1>
+      </div>
+      <% if (currentUser) { %>
+        <a class="button" href="/rankings"><%= currentUser.isAdmin ? 'Cast / edit admin vote' : 'Edit my rankings' %></a>
+      <% } else { %>
+        <div class="hero-actions">
+          <a class="button" href="/register">Create an account</a>
+          <a class="text-link" href="/login">Sign in</a>
+        </div>
+      <% } %>
+    </div>
+
+    <article class="poll-graphic" aria-label="<%= graphicTitle %>">
+      <header class="poll-graphic-masthead">
+        <img class="poll-graphic-logo" src="/boa-things-logo.png" alt="<%= pollBrand %> logo">
+        <div class="poll-graphic-titleline">
+          <strong class="graphic-custom-title"><%= graphicTitle %></strong>
+        </div>
+      </header>
+
+      <% if (!top25.length) { %>
+        <div class="graphic-empty">
+          <strong>No rankings yet.</strong>
+          <span>Add bands and save ballots to populate the Top 25.</span>
+        </div>
+      <% } else { %>
+        <div class="graphic-rank-columns">
+          <% [top25.slice(0, 13), top25.slice(13, 25)].forEach((column, columnIndex) => { %>
+            <div class="graphic-rank-column <%= columnIndex === 1 ? 'graphic-rank-column-second' : '' %>">
+              <% column.forEach(row => { %>
+                <div class="graphic-rank-row">
+                  <span class="graphic-rank-number"><%= row.rank %></span>
+                  <span class="graphic-band-copy">
+                    <strong><%= row.name %></strong>
+                    <% if (row.city || row.state) { %><small><%= [row.city, row.state].filter(Boolean).join(', ') %></small><% } %>
+                  </span>
+                  <span class="graphic-points"><%= row.points %> <small>PTS</small></span>
+                </div>
+              <% }) %>
+            </div>
+          <% }) %>
+        </div>
+        <footer class="graphic-others">
+          <strong>OTHERS RECEIVING VOTES</strong>
+          <p><%= others.length ? others.map(row => `${row.name} ${row.points}`).join(' • ') : 'None' %></p>
+        </footer>
+      <% } %>
+    </article>
+
+    <div class="poll-meta-strip">
+      <div><strong><%= ballotCount %></strong><span>Ballots counting</span></div>
+      <div><strong><%= bandCount %></strong><span>Eligible bands</span></div>
+      <div><strong><%= accountCount %></strong><span>Active accounts</span></div>
+      <p>Each account has one live ballot. Saving a new order replaces that account’s previous vote and recalculates the composite.</p>
+    </div>
+  </div>
+</section>
+<%- include('partials/footer') %>
