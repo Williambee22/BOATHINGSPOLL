@@ -1,43 +1,60 @@
 <%- include('partials/header') %>
 
 <section class="section rankings-page">
+
   <div class="shell">
 
     <div class="page-head">
+
       <div>
+
         <div class="eyebrow">
           YOUR CURRENT BALLOT
         </div>
 
-        <h1>My Top 25</h1>
+        <h1>
+          My Top <%= requiredCount %>
+        </h1>
 
         <p>
-          Build your current Top 25, then drag and drop
-          the ranked rows into the exact order you want.
-          Saving replaces your previous ballot and
-          immediately updates the composite.
+          Build your current Top <%= requiredCount %>,
+          then drag and drop the ranked rows into the exact
+          order you want. Saving replaces your previous
+          ballot and immediately updates the composite.
         </p>
 
         <% if (updatedAt) { %>
+
           <p class="last-saved">
+
             Last saved
+
             <time
               data-local-datetime="<%= new Date(updatedAt).toISOString() %>"
             >
               <%= new Date(updatedAt).toISOString() %>
             </time>
+
           </p>
+
         <% } %>
+
       </div>
 
-      <a class="text-link" href="/">
+      <a
+        class="text-link"
+        href="/"
+      >
         View composite →
       </a>
+
     </div>
+
 
     <% if (!bands.length) { %>
 
       <div class="empty-state bordered">
+
         <strong>
           No bands have been added yet.
         </strong>
@@ -46,11 +63,15 @@
           The administrator can add or bulk-import
           the national band list.
         </span>
+
       </div>
 
     <% } else { %>
 
-      <form method="post" action="/rankings">
+      <form
+        method="post"
+        action="/rankings"
+      >
 
         <input
           type="hidden"
@@ -78,20 +99,29 @@
             <div class="picker-head">
 
               <div>
+
                 <div class="eyebrow">
                   ELIGIBLE BANDS
                 </div>
 
-                <h2>Band list</h2>
+                <h2>
+                  Band list
+                </h2>
+
               </div>
 
               <span class="count-chip">
+
                 <span id="selectedCount">
                   <%= rankingIds.length %>
-                </span>/<%= requiredCount %>
+                </span>
+
+                /<%= requiredCount %>
+
               </span>
 
             </div>
+
 
             <div class="search-wrap">
 
@@ -109,6 +139,7 @@
               ></div>
 
             </div>
+
 
             <div
               class="band-pool"
@@ -145,6 +176,7 @@
 
               <% }) %>
 
+
               <div
                 class="band-search-empty"
                 id="bandSearchEmpty"
@@ -180,17 +212,20 @@
 
             </div>
 
+
             <ol
               class="rank-list"
               id="rankList"
             >
 
-              <% rankingIds.forEach(id => {
-                   const band = bands.find(
-                     b => Number(b.id) === Number(id)
-                   );
+              <%
+                rankingIds.forEach(id => {
 
-                   if (band) {
+                  const band = bands.find(
+                    b => Number(b.id) === Number(id)
+                  );
+
+                  if (band) {
               %>
 
                 <li
@@ -233,9 +268,13 @@
 
                 </li>
 
-              <% } }) %>
+              <%
+                  }
+                });
+              %>
 
             </ol>
+
 
             <div class="save-box">
 
@@ -282,6 +321,7 @@
     <% } %>
 
   </div>
+
 </section>
 
 <%- include('partials/footer') %>
