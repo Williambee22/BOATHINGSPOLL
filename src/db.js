@@ -55,14 +55,17 @@ async function initDb(pool) {
     CREATE TABLE IF NOT EXISTS ballot_rankings (
       id BIGSERIAL PRIMARY KEY,
       ballot_id BIGINT NOT NULL REFERENCES ballots(id) ON DELETE CASCADE,
-      rank INTEGER NOT NULL CHECK (rank BETWEEN 1 AND 25),
+      rank INTEGER NOT NULL CONSTRAINT ballot_rankings_rank_positive_check CHECK (rank >= 1),
       band_id BIGINT NOT NULL REFERENCES bands(id),
       UNIQUE (ballot_id, rank),
       UNIQUE (ballot_id, band_id)
     );
 
-    CREATE INDEX IF NOT EXISTS ballot_rankings_ballot_idx ON ballot_rankings (ballot_id);
-    CREATE INDEX IF NOT EXISTS ballot_rankings_band_idx ON ballot_rankings (band_id);
+    CREATE INDEX IF NOT EXISTS ballot_rankings_ballot_idx
+      ON ballot_rankings (ballot_id);
+
+    CREATE INDEX IF NOT EXISTS ballot_rankings_band_idx
+      ON ballot_rankings (band_id);
 
     CREATE TABLE IF NOT EXISTS site_settings (
       key VARCHAR(80) PRIMARY KEY,
@@ -71,18 +74,45 @@ async function initDb(pool) {
     );
   `);
 
+  // Older releases limited rankings to 1-25 at the database level.
+  // Remove that legacy cap and replace it with a positive-rank constraint.
+  await pool.query(`
+    ALTER TABLE ballot_rankings
+      DROP CONSTRAINT IF EXISTS ballot_rankings_rank_check;
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'ballot_rankings_rank_positive_check'
+          AND conrelid = 'ballot_rankings'::regclass
+      ) THEN
+        ALTER TABLE ballot_rankings
+          ADD CONSTRAINT ballot_rankings_rank_positive_check CHECK (rank >= 1);
+      END IF;
+    END
+    $$;
+  `);
+
   for (const band of seedBands) {
     await pool.query(
       `INSERT INTO bands (name, city, state, active)
        VALUES ($1, $2, $3, TRUE)
        ON CONFLICT DO NOTHING`,
-      [String(band.name || '').trim(), String(band.city || '').trim(), String(band.state || '').trim().toUpperCase()]
+      [
+        String(band.name || '').trim(),
+        String(band.city || '').trim(),
+        String(band.state || '').trim().toUpperCase()
+      ]
     );
   }
 
   await pool.query(`
     INSERT INTO site_settings (key, value)
-    VALUES ('graphic_title', 'BOA THINGS TOP 25')
+    VALUES
+      ('graphic_title', 'BOA THINGS TOP 25'),
+      ('poll_size', '25')
     ON CONFLICT (key) DO NOTHING
   `);
 
@@ -90,62 +120,104 @@ async function initDb(pool) {
 }
 
 async function ensureAdmin(pool) {
-  const existing = await pool.query('SELECT id, username FROM users WHERE is_admin = TRUE ORDER BY id ASC LIMIT 1');
+  const existing = await pool.query(
+    'SELECT id, username FROM users WHERE is_admin = TRUE ORDER BY id ASC LIMIT 1'
+  );
+
   if (existing.rows[0]) return existing.rows[0];
 
   const username = (process.env.ADMIN_USERNAME || 'admin').trim();
-  const password = process.env.ADMIN_PASSWORD || 'ChangeMeImmediately123!';
-  const displayName = (process.env.ADMIN_DISPLAY_NAME || 'Poll Administrator').trim();
+  const password =
+    process.env.ADMIN_PASSWORD || 'ChangeMeImmediately123!';
+  const displayName =
+    (process.env.ADMIN_DISPLAY_NAME || 'Poll Administrator').trim();
 
   if (!process.env.ADMIN_PASSWORD) {
-    console.warn('WARNING: ADMIN_PASSWORD is not set. Set it in Railway before public use.');
+    console.warn(
+      'WARNING: ADMIN_PASSWORD is not set. Set it in Railway before public use.'
+    );
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+
   const result = await pool.query(
-    `INSERT INTO users (username, display_name, password_hash, is_admin, active)
-     VALUES ($1, $2, $3, TRUE, TRUE)
-     RETURNING id, username`,
+    `INSERT INTO users (
+      username,
+      display_name,
+      password_hash,
+      is_admin,
+      active
+    )
+    VALUES ($1, $2, $3, TRUE, TRUE)
+    RETURNING id, username`,
     [username, displayName, passwordHash]
   );
+
   return result.rows[0];
 }
 
-async function getResults(pool) {
+async function getResults(pool, pollSize = 25) {
+  const size =
+    Math.max(1, Number.parseInt(pollSize, 10) || 25);
+
   const result = await pool.query(`
     SELECT
       bnd.id,
       bnd.name,
       bnd.city,
       bnd.state,
-      SUM(26 - br.rank)::int AS points,
+      SUM(($1::int + 1) - br.rank)::int AS points,
       COUNT(*) FILTER (WHERE br.rank = 1)::int AS first_place_votes,
       COUNT(*)::int AS ballot_mentions
     FROM ballot_rankings br
-    JOIN ballots blt ON blt.id = br.ballot_id
-    JOIN users u ON u.id = blt.user_id AND u.active = TRUE
-    JOIN bands bnd ON bnd.id = br.band_id
+    JOIN ballots blt
+      ON blt.id = br.ballot_id
+    JOIN users u
+      ON u.id = blt.user_id
+      AND u.active = TRUE
+    JOIN bands bnd
+      ON bnd.id = br.band_id
     WHERE bnd.active = TRUE
-    GROUP BY bnd.id, bnd.name, bnd.city, bnd.state
-    ORDER BY points DESC, first_place_votes DESC, bnd.name ASC
-  `);
+      AND br.rank <= $1
+    GROUP BY
+      bnd.id,
+      bnd.name,
+      bnd.city,
+      bnd.state
+    ORDER BY
+      points DESC,
+      first_place_votes DESC,
+      bnd.name ASC
+  `, [size]);
 
   let lastPoints = null;
   let lastRank = 0;
+
   return result.rows.map((row, index) => {
     const points = Number(row.points);
-    if (lastPoints === null || points !== lastPoints) {
+
+    if (
+      lastPoints === null ||
+      points !== lastPoints
+    ) {
       lastRank = index + 1;
       lastPoints = points;
     }
+
     return {
       ...row,
       points,
-      first_place_votes: Number(row.first_place_votes),
-      ballot_mentions: Number(row.ballot_mentions),
+      first_place_votes:
+        Number(row.first_place_votes),
+      ballot_mentions:
+        Number(row.ballot_mentions),
       rank: lastRank
     };
   });
 }
 
-module.exports = { makePool, initDb, getResults };
+module.exports = {
+  makePool,
+  initDb,
+  getResults
+};
