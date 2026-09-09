@@ -1,6 +1,6 @@
 {
   "name": "national-marching-band-poll",
-  "version": "1.5.0",
+  "version": "1.6.0"
   "private": true,
   "description": "Railway-deployable community Top 25 poll for high school marching bands",
   "main": "app.js",
