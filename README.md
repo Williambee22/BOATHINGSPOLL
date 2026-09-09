@@ -1,4 +1,4 @@
-# National Marching Band Poll v1.4
+# National Marching Band Poll v1.5
 
 A continuous AP-style Top 25 polling site for high school marching band, built for Railway with Node.js, Express, EJS, and PostgreSQL.
 
@@ -93,3 +93,18 @@ Pike County Central H.S., KY
 ```
 
 The importer uses school name + state to identify duplicates. If the same school appears more than once in a paste, only the first occurrence is used. If that school/state is already in the database, it is skipped rather than added again.
+
+
+## Bulk import format
+
+Use one school per line in this exact format:
+
+```text
+Noblesville H.S., IN
+Norton H.S., OH
+Norwood H.S., OH
+O'Fallon Township H.S., IL
+Pike County Central H.S., KY
+```
+
+Bulk import uses **school name + state** as the identity. The first occurrence in the pasted list is kept, later duplicates are ignored, and a matching school already in PostgreSQL is skipped. The import is performed in one database statement so large lists do not require one query per school.

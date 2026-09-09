@@ -428,38 +428,54 @@ function parseBandImport(text) {
   return rows;
 }
 
-app.post('/admin/bands/import', requireAdmin, async (req, res, next) => {
-  const client = await pool.connect();
+app.post('/admin/bands/import', requireAdmin, async (req, res) => {
   try {
     const rows = parseBandImport(req.body.band_list);
     if (!rows.length) {
       flash(req, 'error', 'Paste at least one band using School Name, ST — one school per line.');
       return res.redirect('/admin#bands');
     }
-    await client.query('BEGIN');
-    let added = 0;
-    for (const row of rows) {
-      const result = await client.query(
-        `INSERT INTO bands (name, city, state, active)
-         SELECT $1, '', $2, TRUE
-         WHERE NOT EXISTS (
-           SELECT 1
-           FROM bands
-           WHERE LOWER(name) = LOWER($1)
-             AND UPPER(state) = UPPER($2)
-         )`,
-        [row.name, row.state]
-      );
-      added += result.rowCount;
-    }
-    await client.query('COMMIT');
-    flash(req, 'success', `${added} band${added === 1 ? '' : 's'} added. ${rows.length - added} duplicate${rows.length - added === 1 ? '' : 's'} skipped.`);
-    res.redirect('/admin#bands');
+
+    const names = rows.map(row => row.name);
+    const states = rows.map(row => row.state);
+
+    // Insert the whole paste in one statement. DISTINCT ON keeps the first
+    // occurrence from the paste, and NOT EXISTS skips schools already stored.
+    // School identity for bulk imports is school name + state; city is ignored.
+    const result = await pool.query(`
+      WITH incoming AS (
+        SELECT DISTINCT ON (LOWER(TRIM(name)), UPPER(TRIM(state)))
+          TRIM(name) AS name,
+          UPPER(TRIM(state)) AS state,
+          ord
+        FROM UNNEST($1::text[], $2::text[]) WITH ORDINALITY AS t(name, state, ord)
+        WHERE TRIM(name) <> '' AND TRIM(state) <> ''
+        ORDER BY LOWER(TRIM(name)), UPPER(TRIM(state)), ord
+      ), inserted AS (
+        INSERT INTO bands (name, city, state, active)
+        SELECT i.name, '', i.state, TRUE
+        FROM incoming i
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM bands b
+          WHERE LOWER(TRIM(b.name)) = LOWER(i.name)
+            AND UPPER(TRIM(b.state)) = i.state
+        )
+        ON CONFLICT DO NOTHING
+        RETURNING id
+      )
+      SELECT COUNT(*)::int AS added FROM inserted
+    `, [names, states]);
+
+    const added = Number(result.rows[0]?.added || 0);
+    const skipped = rows.length - added;
+    flash(req, 'success', `${added} band${added === 1 ? '' : 's'} added. ${skipped} duplicate${skipped === 1 ? '' : 's'} skipped.`);
+    return res.redirect('/admin#bands');
   } catch (err) {
-    try { await client.query('ROLLBACK'); } catch {}
-    next(err);
-  } finally {
-    client.release();
+    console.error('Band bulk import failed:', err);
+    const detail = String(err?.detail || err?.message || 'Unknown import error').replace(/\s+/g, ' ').trim();
+    flash(req, 'error', `Band import failed: ${detail.slice(0, 240)}`);
+    return res.redirect('/admin#bands');
   }
 });
 
