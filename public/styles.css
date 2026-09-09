@@ -263,3 +263,28 @@ input:focus, textarea:focus { border-color: var(--brass); box-shadow: 0 0 0 2px 
   letter-spacing: -2px;
 }
 .grip:active { cursor: grabbing; }
+
+
+.band-option.is-filtered-out,
+.band-option[hidden] {
+  display: none !important;
+}
+
+.search-status {
+  margin-top: 7px;
+  min-height: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.band-search-empty {
+  padding: 24px 14px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.band-search-empty[hidden] {
+  display: none !important;
+}
