@@ -26,7 +26,27 @@
               <div><div class="eyebrow">ELIGIBLE BANDS</div><h2>Band list</h2></div>
               <span class="count-chip"><span id="selectedCount"><%= rankingIds.length %></span>/<%= requiredCount %></span>
             </div>
-            <div class="search-wrap"><input type="search" id="bandSearch" placeholder="Search school, city or state..." autocomplete="off"></div>
+            <div class="search-wrap">
+              <input
+                type="search"
+                id="bandSearch"
+                placeholder="Search school or state..."
+                autocomplete="off"
+              >
+              <div
+                class="band-search-empty"
+                id="bandSearchEmpty"
+                hidden
+              >
+                No matching bands.
+              </div>
+            
+              <div
+                class="search-status"
+                id="bandSearchStatus"
+                aria-live="polite"
+              ></div>
+            </div>
             <div class="band-pool" id="bandPool">
               <% bands.forEach(band => { %>
                 <button type="button" class="band-option <%= rankingIds.includes(Number(band.id)) ? 'is-selected' : '' %>" data-band-id="<%= band.id %>" data-band-name="<%= band.name %>" data-location="<%= [band.city, band.state].filter(Boolean).join(', ') %>">
