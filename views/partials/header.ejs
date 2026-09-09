@@ -1,41 +1,147 @@
 <!doctype html>
+
 <html lang="en">
+
 <head>
+
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Community Top 25 poll for high school marching bands">
-  <title><%= title %> | <%= siteName %></title>
-  <link rel="stylesheet" href="/styles.css?v=1.6.0">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <meta
+    name="description"
+    content="Community ranking poll for high school marching bands"
+  >
+
+  <title>
+    <%= title %> | <%= siteName %>
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="/styles.css?v=1.6.0"
+  >
+
 </head>
+
 <body>
+
 <header class="site-header">
+
   <div class="shell header-row">
-    <a class="brand" href="/">
-      <span class="brand-mark">25</span>
-      <span class="brand-copy"><strong>Marching Band Poll</strong><small>National community ranking</small></span>
+
+    <a
+      class="brand"
+      href="/"
+    >
+
+      <span class="brand-mark">
+        MB
+      </span>
+
+      <span class="brand-copy">
+
+        <strong>
+          Marching Band Poll
+        </strong>
+
+        <small>
+          National community ranking
+        </small>
+
+      </span>
+
     </a>
-    <nav class="nav-links" aria-label="Primary navigation">
-      <a href="/">Top 25</a>
+
+
+    <nav
+      class="nav-links"
+      aria-label="Primary navigation"
+    >
+
+      <a href="/">
+        Rankings
+      </a>
+
       <% if (currentUser) { %>
-        <a href="/rankings">My Rankings</a>
-        <% if (currentUser.isAdmin) { %><a href="/admin">Admin</a><% } %>
-        <a href="/account">Account</a>
+
+        <a href="/rankings">
+          My Rankings
+        </a>
+
+        <% if (currentUser.isAdmin) { %>
+
+          <a href="/admin">
+            Admin
+          </a>
+
+        <% } %>
+
+        <a href="/account">
+          Account
+        </a>
+
       <% } %>
+
+
       <% if (!currentUser) { %>
-        <a href="/login">Sign in</a>
-        <a class="nav-cta" href="/register">Create account</a>
+
+        <a href="/login">
+          Sign in
+        </a>
+
+        <a
+          class="nav-cta"
+          href="/register"
+        >
+          Create account
+        </a>
+
       <% } else { %>
-        <form action="/logout" method="post" class="inline-form">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button type="submit" class="nav-button">Log out</button>
+
+        <form
+          action="/logout"
+          method="post"
+          class="inline-form"
+        >
+
+          <input
+            type="hidden"
+            name="_csrf"
+            value="<%= csrfToken %>"
+          >
+
+          <button
+            type="submit"
+            class="nav-button"
+          >
+            Log out
+          </button>
+
         </form>
+
       <% } %>
+
     </nav>
+
   </div>
+
 </header>
+
+
 <main>
+
   <% if (flash) { %>
+
     <div class="shell flash-wrap">
-      <div class="flash flash-<%= flash.type %>"><%= flash.message %></div>
+
+      <div class="flash flash-<%= flash.type %>">
+        <%= flash.message %>
+      </div>
+
     </div>
+
   <% } %>
